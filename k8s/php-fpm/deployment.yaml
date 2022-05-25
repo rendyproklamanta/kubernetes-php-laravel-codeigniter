@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-php
+spec:
+  minReadySeconds: 5
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      name: app-php
+  template:
+    metadata:
+      labels:
+        name: app-php
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - app-php
+                topologyKey: kubernetes.io/hostname
+              weight: 100
+      imagePullSecrets:
+        - name: gitlab-token
+      containers:
+        - name: app-php
+          image: registry.gitlab.com/<name>/<repository>:latest
+          ports:
+            - containerPort: 9000
+          imagePullPolicy: Always
+          resources:
+            limits:
+              cpu: 200m
+              memory: 400M
+            requests:
+              cpu: 100m
+              memory: 200M
+          livenessProbe:
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            tcpSocket:
+              port: 9000
+            timeoutSeconds: 30
+          readinessProbe:
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            tcpSocket:
+              port: 9000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-php-service
+spec:
+  selector:
+    name: app-php
+  ports:
+    - name: http
+      port: 9000
+      protocol: TCP
+      targetPort: 9000
